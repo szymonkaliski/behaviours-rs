@@ -17,4 +17,5 @@ const simulation = Simulation.create(
 );
 ```
 
-- so first task would be to parse the tree in rust
+- so first task would be to parse the tree in rust, and pass values in
+- both seem to work using serde
