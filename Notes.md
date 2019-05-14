@@ -1,3 +1,9 @@
+## 2019-05-14
+
+- cont. with the research
+- got basic `repulse` and `dampen` working, I'm surprised but how quickly it started working, exciting!
+- I need to read up on serde parsing, as for example `dampen` requires only `f`, but it breaks rust when no `r` is available
+
 ## 2019-05-13
 
 - thinking through most basic simulation - repulsion system
@@ -6,8 +12,6 @@
 
 ```js
 const points = range(10000).map(() => randomPos())
-
-// velocity - is it part of simulation only?
 
 const simulation = Simulation.create(
   points,
