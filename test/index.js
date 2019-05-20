@@ -7,9 +7,18 @@ const points = Array.from({ length: 1000 }).map(() => [
   Math.random() * 100 + height / 2
 ]);
 
-const simulation = Simulation.create(points, [
+const createSimulation = (points, behaviours) =>
+  Simulation.create(
+    points,
+    behaviours.reduce(
+      (memo, [behaviour, params]) => [...memo, { behaviour, params }],
+      []
+    )
+  );
+
+const simulation = createSimulation(points, [
   ["repel", { f: 0.2, r: 1.0 }],
-  ["dampen", { f: 0.01, r: 0.0 }]
+  ["dampen", { f: 0.01 }]
 ]);
 
 const canvas = document.createElement("canvas");

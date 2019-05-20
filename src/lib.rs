@@ -68,12 +68,24 @@ struct Point {
 
 #[derive(Deserialize, Debug)]
 struct Params {
+    #[serde(default)]
     f: f32,
+
+    #[serde(default)]
     r: f32,
 }
 
+impl Default for Params {
+    fn default() -> Self {
+        Params { f: 0.0, r: 0.0 }
+    }
+}
+
 #[derive(Deserialize, Debug)]
-struct BehaviourNode(String, Params);
+struct BehaviourNode {
+    behaviour: String,
+    params: Params,
+}
 
 #[wasm_bindgen]
 pub struct Simulation {
@@ -129,13 +141,13 @@ impl Simulation {
             let mut new_vel = Vector2d(self.points[i].vel.0, self.points[i].vel.1);
             let current_pos = self.points[i].pos;
 
-            for behaviour in &self.behaviours {
-                if behaviour.0 == "repel" {
+            for b in &self.behaviours {
+                if b.behaviour == "repel" {
                     let nearby_points = self
                         .tree
                         .within(
                             &[self.points[i].pos.0 as f32, self.points[i].pos.1 as f32],
-                            behaviour.1.r,
+                            b.params.r,
                             &squared_euclidean,
                         )
                         .unwrap();
@@ -144,14 +156,14 @@ impl Simulation {
                         let vel_mod = current_pos
                             .sub(self.points[*nearby_idx].pos)
                             .normalize()
-                            .mul_n(behaviour.1.f);
+                            .mul_n(b.params.f);
 
                         new_vel = new_vel.add(vel_mod);
                     }
                 }
 
-                if behaviour.0 == "dampen" {
-                    new_vel = new_vel.mul_n(1.0 - behaviour.1.f);
+                if b.behaviour == "dampen" {
+                    new_vel = new_vel.mul_n(1.0 - b.params.f);
                 }
             }
 
