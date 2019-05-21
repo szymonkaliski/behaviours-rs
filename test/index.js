@@ -3,8 +3,8 @@ import { Simulation } from "behaviours-rs";
 const [width, height] = [600, 600];
 
 const points = Array.from({ length: 1000 }).map(() => [
-  Math.random() * 100 + width / 2,
-  Math.random() * 100 + height / 2
+  Math.random() * 100 - 50 + width / 2,
+  Math.random() * 100 - 50 + height / 2
 ]);
 
 const createSimulation = (points, behaviours) =>
@@ -17,8 +17,12 @@ const createSimulation = (points, behaviours) =>
   );
 
 const simulation = createSimulation(points, [
-  ["repel", { f: 0.2, r: 1.0 }],
-  ["dampen", { f: 0.01 }]
+  ["attract", { p: [600, 300], f: 0.1, r: 300 }],
+  ["attract", { p: [0, 300], f: 0.1, r: 300 }],
+  ["attract", { p: [300, 0], f: 0.1, r: 300 }],
+  ["attract", { p: [300, 600], f: 0.1, r: 300 }],
+  ["repel", { f: 0.3, r: 50.0 }],
+  ["dampen", { f: 0.1 }]
 ]);
 
 const canvas = document.createElement("canvas");

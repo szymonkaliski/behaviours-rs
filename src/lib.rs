@@ -21,6 +21,12 @@ macro_rules! log {
 #[derive(Deserialize, Debug, Clone, Copy)]
 struct Vector2d(f32, f32);
 
+impl Default for Vector2d {
+    fn default() -> Self {
+        Vector2d(0.0, 0.0)
+    }
+}
+
 impl Vector2d {
     fn sub(mut self, other_vector: Vector2d) -> Vector2d {
         self.0 -= other_vector.0;
@@ -73,11 +79,18 @@ struct Params {
 
     #[serde(default)]
     r: f32,
+
+    #[serde(default)]
+    p: Vector2d,
 }
 
 impl Default for Params {
     fn default() -> Self {
-        Params { f: 0.0, r: 0.0 }
+        Params {
+            f: 0.0,
+            r: 0.0,
+            p: Vector2d(0.0, 0.0),
+        }
     }
 }
 
@@ -119,8 +132,8 @@ impl Simulation {
             })
         }
 
-        // for node in &behaviours {
-        //     log!("{:?}", node);
+        // for b in &behaviours {
+        //     log!("{:?}", b);
         // }
 
         // for point in points {
@@ -164,6 +177,22 @@ impl Simulation {
 
                 if b.behaviour == "dampen" {
                     new_vel = new_vel.mul_n(1.0 - b.params.f);
+                }
+
+                if b.behaviour == "attract" {
+                    let should_impact = if b.params.r != 0.0 {
+                        squared_euclidean(
+                            &[b.params.p.0 as f32, b.params.p.1 as f32],
+                            &[current_pos.0 as f32, current_pos.1 as f32],
+                        ) < b.params.r
+                    } else {
+                        true
+                    };
+
+                    if should_impact {
+                        let vel_mod = b.params.p.sub(current_pos).normalize().mul_n(b.params.f);
+                        new_vel = new_vel.add(vel_mod);
+                    }
                 }
             }
 
