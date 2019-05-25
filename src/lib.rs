@@ -81,42 +81,18 @@ struct Test(String, String, String);
 
 impl Default for Test {
     fn default() -> Self {
-        Test("".to_string(), "".to_string(), "".to_string())
+        Test("NOP".to_string(), "".to_string(), "".to_string())
     }
 }
 
 #[derive(Deserialize, Debug)]
 struct Params {
-    #[serde(default)]
-    f: f32,
-
-    #[serde(default)]
-    r: f32,
-
-    #[serde(default)]
-    p: Vector2d,
-
-    #[serde(default)]
-    test: Test,
-
-    #[serde(default)]
-    key: String,
-
-    #[serde(default)]
-    value: String,
-}
-
-impl Default for Params {
-    fn default() -> Self {
-        Params {
-            f: 0.0,
-            r: 0.0,
-            p: Vector2d(0.0, 0.0),
-            test: Test("".to_string(), "".to_string(), "".to_string()),
-            key: "".to_string(),
-            value: "".to_string(),
-        }
-    }
+    f: Option<f32>,
+    r: Option<f32>,
+    p: Option<Vector2d>,
+    test: Option<Test>,
+    key: Option<String>,
+    value: Option<String>,
 }
 
 #[derive(Deserialize, Debug)]
@@ -195,26 +171,22 @@ impl Simulation {
 
         for b in behaviours {
             if b.behaviour == "if" {
-                let op = &b.params.test.0;
-                let key = &b.params.test.1;
+                let test = b.params.test.as_ref().unwrap();
 
-                let test_value = &b.params.test.2;
+                let op = &test.0;
+                let key = &test.1;
+                let test_value = &test.2;
 
-                let point_value = match point.meta.get(key) {
-                    Some(value) => value,
-                    None => &empty_value,
-                };
+                let point_value = point.meta.get(key).unwrap_or(&empty_value);
 
                 if (op == "!=" && test_value != point_value)
                     || (op == "==" && test_value == point_value)
                 {
-                    // TODO: child_meta
                     let (child_vel, child_meta) = self.process_behaviours(point, &b.children);
 
-                    // FIXME: not sure about that...
-                    // vel = vel.add(child_vel);
+                    // FIXME: not sure about this, why `vel = vel.add(child_vel);` doesn't work?
                     vel = child_vel;
-                    meta = child_meta;
+                    meta.extend(child_meta);
                 }
             }
 
@@ -223,7 +195,7 @@ impl Simulation {
                     .tree
                     .within(
                         &[point.pos.0 as f32, point.pos.1 as f32],
-                        b.params.r,
+                        b.params.r.unwrap_or(0.0),
                         &squared_euclidean,
                     )
                     .unwrap();
@@ -233,57 +205,59 @@ impl Simulation {
                         .pos
                         .sub(self.points[*nearby_idx].pos)
                         .normalize()
-                        .mul_n(b.params.f);
+                        .mul_n(b.params.f.unwrap_or(0.0));
 
                     vel = vel.add(vel_mod);
                 }
             }
 
             if b.behaviour == "attract" {
-                let should_impact = if b.params.r != 0.0 {
-                    squared_euclidean(
-                        &[b.params.p.0 as f32, b.params.p.1 as f32],
-                        &[point.pos.0 as f32, point.pos.1 as f32],
-                    ) < b.params.r
+                let p = b.params.p.unwrap_or_default();
+
+                let should_impact = if b.params.r.unwrap_or(0.0) != 0.0 {
+                    squared_euclidean(&[p.0, p.1], &[point.pos.0, point.pos.1])
+                        < b.params.r.unwrap_or(0.0)
                 } else {
                     true
                 };
 
                 if should_impact {
-                    let vel_mod = b.params.p.sub(point.pos).normalize().mul_n(b.params.f);
+                    let vel_mod = p
+                        .sub(point.pos)
+                        .normalize()
+                        .mul_n(b.params.f.unwrap_or(0.0));
+
                     vel = vel.add(vel_mod);
                 }
             }
 
             if b.behaviour == "dampen" {
-                vel = vel.mul_n(1.0 - b.params.f);
+                vel = vel.mul_n(1.0 - b.params.f.unwrap_or(0.0));
             }
 
             if b.behaviour == "collide" {
-                let op = &b.params.test.0;
-                let key = &b.params.test.1;
-                let test_value = &b.params.test.2;
+                let test = b.params.test.as_ref().unwrap();
+
+                let op = &test.0;
+                let key = &test.1;
+                let test_value = &test.2;
 
                 let nearby_points = self
                     .tree
                     .within(
                         &[point.pos.0 as f32, point.pos.1 as f32],
-                        b.params.r,
+                        b.params.r.unwrap_or(0.0),
                         &squared_euclidean,
                     )
                     .unwrap();
 
                 let mut did_collide_passing_test = false;
 
-                // let did_collide_passing_test = nearby_points.len() > 1;
-
-                // log!("{:?}", did_collide_passing_test);
-
                 for (_, nearby_idx) in nearby_points {
-                    let point_value = match self.points[*nearby_idx].meta.get(key) {
-                        Some(value) => value,
-                        None => &empty_value,
-                    };
+                    let point_value = self.points[*nearby_idx]
+                        .meta
+                        .get(key)
+                        .unwrap_or(&empty_value);
 
                     if (op == "!=" && test_value != point_value)
                         || (op == "==" && test_value == point_value)
@@ -296,15 +270,17 @@ impl Simulation {
                 if did_collide_passing_test {
                     let (child_vel, child_meta) = self.process_behaviours(point, &b.children);
 
-                    // FIXME: not sure about that...
-                    // vel = vel.add(child_vel);
+                    // FIXME: not sure about this, why `vel = vel.add(child_vel);` doesn't work?
                     vel = child_vel;
-                    meta = child_meta; // TODO: merge?
+                    meta.extend(child_meta);
                 }
             }
 
             if b.behaviour == "set" {
-                meta.insert(b.params.key.clone(), b.params.value.clone());
+                match (&b.params.key, &b.params.value) {
+                    (Some(key), Some(value)) => meta.insert(key.clone(), value.clone()),
+                    _ => None,
+                };
             }
 
             if b.behaviour == "stop" {
@@ -321,7 +297,7 @@ impl Simulation {
 
             self.points[i].vel = new_vel;
             self.points[i].pos = self.points[i].pos.add(self.points[i].vel);
-            self.points[i].meta = new_meta;
+            self.points[i].meta.extend(new_meta);
         }
 
         self.tree = tree_from_points(&self.points);

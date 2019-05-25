@@ -9,6 +9,7 @@ const randomPointOnCircle = r => {
 
 const add = (a, b) => [a[0] + b[0], a[1] + b[1]];
 
+const ITERS = 1;
 const SPAWN_ON_CIRCLE = true;
 
 const points = Array.from({ length: 10000 }).map((_, i) =>
@@ -67,10 +68,11 @@ const bDLA = [
     { test: ["!=", "static", "true"] },
     [
       ["attract", { p: [300, 300], f: 0.1 }],
+      // ["repel", { p: [300, 400], r: 200, f: 0.1 }],
       ["dampen", { f: 0.1 }],
       [
         "collide",
-        { r: 5.0, test: ["==", "static", "true"] },
+        { r: 10.0, test: ["==", "static", "true"] },
         [["set", { key: "static", value: "true" }], ["stop"]]
       ]
     ]
@@ -89,7 +91,9 @@ const ctx = canvas.getContext("2d");
 const loop = () => {
   ctx.clearRect(0, 0, 600, 600);
 
-  simulation.step();
+  for (let j = 0; j < ITERS; j++) {
+    simulation.step();
+  }
 
   const positions = simulation.get();
 
