@@ -159,6 +159,48 @@ impl Simulation {
         self.points[idx].meta.insert(key, value);
     }
 
+    fn vel_for_pos_or_others(&self, params: &Params, point: &Point) -> Vector2d {
+        let mut vel_mod = Vector2d(0.0, 0.0);
+
+        match params.p {
+            Some(p) => {
+                let should_impact = if params.r.unwrap_or(0.0) != 0.0 {
+                    let d = squared_euclidean(&[p.0, p.1], &[point.pos.0, point.pos.1]);
+                    d < params.r.unwrap_or(0.0)
+                } else {
+                    true
+                };
+
+                if should_impact {
+                    vel_mod = p.sub(point.pos).normalize().mul_n(params.f.unwrap_or(0.0));
+                }
+            }
+
+            None => {
+                let nearby_points = self
+                    .tree
+                    .within(
+                        &[point.pos.0, point.pos.1],
+                        params.r.unwrap_or(0.0),
+                        &squared_euclidean,
+                    )
+                    .unwrap();
+
+                for (_, nearby_idx) in nearby_points {
+                    vel_mod = vel_mod.sub(
+                        point
+                            .pos
+                            .sub(self.points[*nearby_idx].pos)
+                            .normalize()
+                            .mul_n(params.f.unwrap_or(0.0)),
+                    );
+                }
+            }
+        }
+
+        vel_mod
+    }
+
     fn process_behaviours(
         &self,
         point: &Point,
@@ -191,44 +233,13 @@ impl Simulation {
             }
 
             if b.behaviour == "repel" {
-                let nearby_points = self
-                    .tree
-                    .within(
-                        &[point.pos.0 as f32, point.pos.1 as f32],
-                        b.params.r.unwrap_or(0.0),
-                        &squared_euclidean,
-                    )
-                    .unwrap();
-
-                for (_, nearby_idx) in nearby_points {
-                    let vel_mod = point
-                        .pos
-                        .sub(self.points[*nearby_idx].pos)
-                        .normalize()
-                        .mul_n(b.params.f.unwrap_or(0.0));
-
-                    vel = vel.add(vel_mod);
-                }
+                let b_vel = self.vel_for_pos_or_others(&b.params, point);
+                vel = vel.sub(b_vel);
             }
 
             if b.behaviour == "attract" {
-                let p = b.params.p.unwrap_or_default();
-
-                let should_impact = if b.params.r.unwrap_or(0.0) != 0.0 {
-                    squared_euclidean(&[p.0, p.1], &[point.pos.0, point.pos.1])
-                        < b.params.r.unwrap_or(0.0)
-                } else {
-                    true
-                };
-
-                if should_impact {
-                    let vel_mod = p
-                        .sub(point.pos)
-                        .normalize()
-                        .mul_n(b.params.f.unwrap_or(0.0));
-
-                    vel = vel.add(vel_mod);
-                }
+                let b_vel = self.vel_for_pos_or_others(&b.params, point);
+                vel = vel.add(b_vel);
             }
 
             if b.behaviour == "dampen" {

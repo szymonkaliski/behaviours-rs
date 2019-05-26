@@ -10,9 +10,9 @@ const randomPointOnCircle = r => {
 const add = (a, b) => [a[0] + b[0], a[1] + b[1]];
 
 const ITERS = 1;
-const SPAWN_ON_CIRCLE = true;
+const SPAWN_ON_CIRCLE = false;
 
-const points = Array.from({ length: 10000 }).map((_, i) =>
+const points = Array.from({ length: 1000 }).map((_, i) =>
   i === 0
     ? [300, 300]
     : SPAWN_ON_CIRCLE
@@ -79,7 +79,17 @@ const bDLA = [
   ]
 ];
 
-const simulation = createSimulation(points, bDLA);
+const bTest = [
+  // ["repel", { p: [300, 300], r: 100, f: 1.0 }],
+  // ["attract", { p: [300, 300], f: 0.1 }],
+  ["attract", { r: 400, f: 0.2 }],
+  ["repel", { r: 300, f: 0.5 }],
+  // ["attract", { p: [300, 0], f: 0.5 }],
+  // ["repel", { r: 50, f: 0.5 }],
+  ["dampen", { f: 0.9 }]
+];
+
+const simulation = createSimulation(points, bTest);
 simulation.setMeta(0, "static", "true");
 
 const canvas = document.createElement("canvas");
