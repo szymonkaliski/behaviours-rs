@@ -124,26 +124,19 @@ fn tree_from_points(points: &[Point]) -> KdTree<f32, usize, [f32; 2]> {
 
 #[wasm_bindgen]
 impl Simulation {
-    pub fn create(points: &js_sys::Array, behaviours: &JsValue) -> Simulation {
+    pub fn create(points_flat: &js_sys::Float32Array, behaviours: &JsValue) -> Simulation {
         let behaviours: Vec<BehaviourNode> = behaviours.into_serde().unwrap();
-        let points: Vec<(f32, f32)> = points.into_serde().unwrap();
+        let mut points_tmp = Vec::new();
+        points_flat.for_each(&mut |n, _, _| points_tmp.push(n));
 
         let mut final_points: Vec<Point> = [].to_vec();
-        for point in points {
+        for i in 0..points_tmp.len() / 2 {
             final_points.push(Point {
-                pos: Vector2d(point.0, point.1),
+                pos: Vector2d(points_tmp[i], points_tmp[i + 1]),
                 vel: Vector2d(0.0, 0.0),
                 meta: MetaMap::new(),
             })
         }
-
-        // for b in &behaviours {
-        //     log!("{:?}", b);
-        // }
-
-        // for point in points {
-        //     log!("{:?}", point);
-        // }
 
         let kdtree = tree_from_points(&final_points);
 
@@ -157,6 +150,11 @@ impl Simulation {
     #[wasm_bindgen(js_name = setMeta)]
     pub fn set_meta(&mut self, idx: usize, key: String, value: String) {
         self.points[idx].meta.insert(key, value);
+    }
+
+    #[wasm_bindgen(js_name = _replaceBehaviours)]
+    pub fn replace_behaviors(&mut self, behaviours: &JsValue) {
+        self.behaviours = behaviours.into_serde().unwrap();
     }
 
     fn vel_for_pos_or_others(&self, params: &Params, point: &Point) -> Vector2d {
@@ -332,5 +330,15 @@ impl Simulation {
 
         js_sys::Float32Array::new(&memory_buffer)
             .subarray(points_location, points_location + points.len() as u32)
+    }
+
+    // -> js_sys::Float32Array
+    #[wasm_bindgen(js_name = getIf)]
+    pub fn get_if(&self, test: &JsValue) {
+        let test: Test = test.into_serde().unwrap();
+
+        log!("test {:?}", test);
+
+        // TODO: finish here
     }
 }

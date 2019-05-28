@@ -1,4 +1,4 @@
-import { Simulation } from "behaviours-rs";
+import { createSimulation } from "behaviours-rs";
 
 const [width, height] = [600, 600];
 
@@ -10,7 +10,7 @@ const randomPointOnCircle = r => {
 const add = (a, b) => [a[0] + b[0], a[1] + b[1]];
 
 const ITERS = 1;
-const SPAWN_ON_CIRCLE = false;
+const SPAWN_ON_CIRCLE = true;
 
 const points = Array.from({ length: 1000 }).map((_, i) =>
   i === 0
@@ -23,26 +23,12 @@ const points = Array.from({ length: 1000 }).map((_, i) =>
       ]
 );
 
-const processBehaviours = behaviours =>
-  behaviours.reduce(
-    (memo, [behaviour, params = {}, children]) => [
-      ...memo,
-      {
-        behaviour,
-        params,
-        ...(children ? { children: processBehaviours(children) } : undefined)
-      }
-    ],
-    []
-  );
+const pointsFloatArray = new Float32Array(points.length * 2);
 
-const createSimulation = (points, behaviours) => {
-  behaviours = processBehaviours(behaviours);
-
-  console.log({ behaviours });
-
-  return Simulation.create(points, behaviours);
-};
+points.forEach((p, i) => {
+  pointsFloatArray[i] = p[0];
+  pointsFloatArray[i + 1] = p[1];
+});
 
 const bCorners = [
   ["attract", { p: [600, 300], f: 0.1, r: 300 * 300 }],
@@ -89,8 +75,10 @@ const bTest = [
   ["dampen", { f: 0.9 }]
 ];
 
-const simulation = createSimulation(points, bTest);
+const simulation = createSimulation(pointsFloatArray, bDLA);
 simulation.setMeta(0, "static", "true");
+
+// simulation.replaceBehaviours(bCorners);
 
 const canvas = document.createElement("canvas");
 canvas.width = 600;
@@ -105,7 +93,7 @@ const loop = () => {
     simulation.step();
   }
 
-  const positions = simulation.get();
+  const positions = simulation.getIf(["==", "static", "true"]);
 
   for (let i = 0; i < positions.length; i += 2) {
     const x = positions[i];
@@ -114,7 +102,7 @@ const loop = () => {
     ctx.fillRect(x, y, 1, 1);
   }
 
-  requestAnimationFrame(loop);
+  // requestAnimationFrame(loop);
 };
 
 loop();

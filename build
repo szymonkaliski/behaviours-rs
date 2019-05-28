@@ -1,0 +1,43 @@
+#!/usr/bin/env node
+
+const { execSync } = require("child_process");
+const fs = require("fs");
+
+execSync("wasm-pack build");
+
+const MAIN = `import { Simulation } from "./behaviours_rs.js";
+
+function processBehaviours(behaviours) {
+  return behaviours.reduce(
+    (memo, [behaviour, params = {}, children]) => [
+      ...memo,
+      {
+        behaviour,
+        params,
+        ...(children ? { children: processBehaviours(children) } : undefined)
+      }
+    ],
+    []
+  );
+}
+
+export function createSimulation(points, behaviours) {
+  const simulation = Simulation.create(points, processBehaviours(behaviours));
+
+  simulation.replaceBehaviours = function(behaviours) {
+    simulation._replaceBehaviours(processBehaviours(behaviours));
+  }
+
+  return simulation;
+}
+`;
+
+fs.writeFileSync("./pkg/main.js", MAIN, { encoding: "utf-8" });
+
+const packageJson = require("./pkg/package.json");
+
+packageJson.module = "main.js";
+
+fs.writeFileSync("./pkg/package.json", JSON.stringify(packageJson, null, 2), {
+  encoding: "utf-8"
+});
