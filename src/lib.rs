@@ -77,11 +77,19 @@ struct Point {
 }
 
 #[derive(Deserialize, Debug)]
-struct Test(String, String, String);
+struct Test {
+    op: String,
+    key: String,
+    value: String,
+}
 
 impl Default for Test {
     fn default() -> Self {
-        Test("NOP".to_string(), "".to_string(), "".to_string())
+        Test {
+            op: "NOP".to_string(),
+            key: "".to_string(),
+            value: "".to_string(),
+        }
     }
 }
 
@@ -126,13 +134,15 @@ fn tree_from_points(points: &[Point]) -> KdTree<f32, usize, [f32; 2]> {
 impl Simulation {
     pub fn create(points_flat: &js_sys::Float32Array, behaviours: &JsValue) -> Simulation {
         let behaviours: Vec<BehaviourNode> = behaviours.into_serde().unwrap();
+
         let mut points_tmp = Vec::new();
+        let mut final_points: Vec<Point> = [].to_vec();
+
         points_flat.for_each(&mut |n, _, _| points_tmp.push(n));
 
-        let mut final_points: Vec<Point> = [].to_vec();
         for i in 0..points_tmp.len() / 2 {
             final_points.push(Point {
-                pos: Vector2d(points_tmp[i], points_tmp[i + 1]),
+                pos: Vector2d(points_tmp[i * 2], points_tmp[i * 2 + 1]),
                 vel: Vector2d(0.0, 0.0),
                 meta: MetaMap::new(),
             })
@@ -211,16 +221,13 @@ impl Simulation {
 
         for b in behaviours {
             if b.behaviour == "if" {
-                let test = b.params.test.as_ref().unwrap();
+                let test_default = &Test::default();
+                let test = b.params.test.as_ref().unwrap_or(test_default);
 
-                let op = &test.0;
-                let key = &test.1;
-                let test_value = &test.2;
+                let point_value = point.meta.get(&test.key).unwrap_or(&empty_value);
 
-                let point_value = point.meta.get(key).unwrap_or(&empty_value);
-
-                if (op == "!=" && test_value != point_value)
-                    || (op == "==" && test_value == point_value)
+                if (test.op == "!=" && test.value != *point_value)
+                    || (test.op == "==" && test.value == *point_value)
                 {
                     let (child_vel, child_meta) = self.process_behaviours(point, &b.children);
 
@@ -245,11 +252,8 @@ impl Simulation {
             }
 
             if b.behaviour == "collide" {
-                let test = b.params.test.as_ref().unwrap();
-
-                let op = &test.0;
-                let key = &test.1;
-                let test_value = &test.2;
+                let test_default = &Test::default();
+                let test = b.params.test.as_ref().unwrap_or(test_default);
 
                 let nearby_points = self
                     .tree
@@ -260,19 +264,21 @@ impl Simulation {
                     )
                     .unwrap();
 
-                let mut did_collide_passing_test = false;
+                let mut did_collide_passing_test = test.value == "NOP".to_string();
 
-                for (_, nearby_idx) in nearby_points {
-                    let point_value = self.points[*nearby_idx]
-                        .meta
-                        .get(key)
-                        .unwrap_or(&empty_value);
+                if !did_collide_passing_test {
+                    for (_, nearby_idx) in nearby_points {
+                        let point_value = self.points[*nearby_idx]
+                            .meta
+                            .get(&test.key)
+                            .unwrap_or(&empty_value);
 
-                    if (op == "!=" && test_value != point_value)
-                        || (op == "==" && test_value == point_value)
-                    {
-                        did_collide_passing_test = true;
-                        break;
+                        if (test.op == "!=" && test.value != *point_value)
+                            || (test.op == "==" && test.value == *point_value)
+                        {
+                            did_collide_passing_test = true;
+                            break;
+                        }
                     }
                 }
 
@@ -332,13 +338,35 @@ impl Simulation {
             .subarray(points_location, points_location + points.len() as u32)
     }
 
-    // -> js_sys::Float32Array
     #[wasm_bindgen(js_name = getIf)]
-    pub fn get_if(&self, test: &JsValue) {
+    pub fn get_if(&self, test: &JsValue) -> js_sys::Float32Array {
         let test: Test = test.into_serde().unwrap();
 
-        log!("test {:?}", test);
+        let empty_value = "".to_string();
 
-        // TODO: finish here
+        let points_flat = self.points.iter().fold(Vec::new(), |mut values, p| {
+            let point_value = p.meta.get(&test.key).unwrap_or(&empty_value);
+
+            if (test.op == "!=" && test.value != *point_value)
+                || (test.op == "==" && test.value == *point_value)
+            {
+                values.push(p.pos.0);
+                values.push(p.pos.1);
+            }
+
+            values
+        });
+
+        let points: &[f32] = &points_flat;
+
+        let memory_buffer = wasm_bindgen::memory()
+            .dyn_into::<WebAssembly::Memory>()
+            .unwrap()
+            .buffer();
+
+        let points_location = points.as_ptr() as u32 / 4;
+
+        js_sys::Float32Array::new(&memory_buffer)
+            .subarray(points_location, points_location + points.len() as u32)
     }
 }

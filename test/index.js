@@ -12,7 +12,7 @@ const add = (a, b) => [a[0] + b[0], a[1] + b[1]];
 const ITERS = 1;
 const SPAWN_ON_CIRCLE = true;
 
-const points = Array.from({ length: 1000 }).map((_, i) =>
+const points = Array.from({ length: 10000 }).map((_, i) =>
   i === 0
     ? [300, 300]
     : SPAWN_ON_CIRCLE
@@ -26,8 +26,8 @@ const points = Array.from({ length: 1000 }).map((_, i) =>
 const pointsFloatArray = new Float32Array(points.length * 2);
 
 points.forEach((p, i) => {
-  pointsFloatArray[i] = p[0];
-  pointsFloatArray[i + 1] = p[1];
+  pointsFloatArray[i * 2] = p[0];
+  pointsFloatArray[i * 2 + 1] = p[1];
 });
 
 const bCorners = [
@@ -53,7 +53,7 @@ const bDLA = [
     "if",
     { test: ["!=", "static", "true"] },
     [
-      ["attract", { p: [300, 300], f: 0.1 }],
+      ["attract", { p: [300, 300], f: 0.2 }],
       // ["repel", { p: [300, 400], r: 200, f: 0.1 }],
       ["dampen", { f: 0.1 }],
       [
@@ -94,6 +94,7 @@ const loop = () => {
   }
 
   const positions = simulation.getIf(["==", "static", "true"]);
+  // const positions = simulation.get();
 
   for (let i = 0; i < positions.length; i += 2) {
     const x = positions[i];
@@ -102,7 +103,7 @@ const loop = () => {
     ctx.fillRect(x, y, 1, 1);
   }
 
-  // requestAnimationFrame(loop);
+  requestAnimationFrame(loop);
 };
 
 loop();
