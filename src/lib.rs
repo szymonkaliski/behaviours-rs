@@ -20,48 +20,61 @@ macro_rules! log {
 }
 
 #[derive(Deserialize, Debug, Clone, Copy)]
-struct Vector2d(f32, f32);
+struct Vector {
+    x: f32,
+    y: f32,
+    #[serde(default)]
+    z: f32,
+}
 
-impl Default for Vector2d {
+impl Default for Vector {
     fn default() -> Self {
-        Vector2d(0.0, 0.0)
+        Vector {
+            x: 0.0,
+            y: 0.0,
+            z: 0.0,
+        }
     }
 }
 
-impl Vector2d {
-    fn sub(mut self, other_vector: Vector2d) -> Vector2d {
-        self.0 -= other_vector.0;
-        self.1 -= other_vector.1;
+impl Vector {
+    fn sub(mut self, other_vector: Vector) -> Vector {
+        self.x -= other_vector.x;
+        self.y -= other_vector.y;
+        self.z -= other_vector.z;
         self
     }
 
-    fn add(mut self, other_vector: Vector2d) -> Vector2d {
-        self.0 += other_vector.0;
-        self.1 += other_vector.1;
+    fn add(mut self, other_vector: Vector) -> Vector {
+        self.x += other_vector.x;
+        self.y += other_vector.y;
+        self.z += other_vector.z;
         self
     }
 
-    fn div_n(mut self, n: f32) -> Vector2d {
+    fn div_n(mut self, n: f32) -> Vector {
         if n == 0.0 {
             return self;
         }
 
-        self.0 /= n;
-        self.1 /= n;
+        self.x /= n;
+        self.y /= n;
+        self.z /= n;
         self
     }
 
-    fn mul_n(mut self, n: f32) -> Vector2d {
-        self.0 *= n;
-        self.1 *= n;
+    fn mul_n(mut self, n: f32) -> Vector {
+        self.x *= n;
+        self.y *= n;
+        self.z *= n;
         self
     }
 
     fn magnitude(self) -> f32 {
-        (self.0 * self.0 + self.1 * self.1).sqrt()
+        (self.x * self.x + self.y * self.y + self.z * self.z).sqrt()
     }
 
-    fn normalize(self) -> Vector2d {
+    fn normalize(self) -> Vector {
         let mag = self.magnitude();
         self.div_n(mag)
     }
@@ -71,8 +84,8 @@ type MetaMap = HashMap<String, String>;
 
 #[derive(Deserialize, Debug, Clone)]
 struct Point {
-    pos: Vector2d,
-    vel: Vector2d,
+    pos: Vector,
+    vel: Vector,
     meta: MetaMap,
 }
 
@@ -97,7 +110,7 @@ impl Default for Test {
 struct Params {
     f: Option<f32>,
     r: Option<f32>,
-    p: Option<Vector2d>,
+    p: Option<Vector>,
     test: Option<Test>,
     key: Option<String>,
     value: Option<String>,
@@ -116,14 +129,26 @@ struct BehaviourNode {
 pub struct Simulation {
     behaviours: Vec<BehaviourNode>,
     points: Vec<Point>,
-    tree: KdTree<f32, usize, [f32; 2]>,
+    tree2d: Option<KdTree<f32, usize, [f32; 2]>>,
+    tree3d: Option<KdTree<f32, usize, [f32; 3]>>,
+    dims: usize,
 }
 
-fn tree_from_points(points: &[Point]) -> KdTree<f32, usize, [f32; 2]> {
+fn tree2d_from_points(points: &[Point]) -> KdTree<f32, usize, [f32; 2]> {
     let mut tree = KdTree::new(2);
 
     for (i, point) in points.iter().enumerate() {
-        tree.add([point.pos.0 as f32, point.pos.1 as f32], i)
+        tree.add([point.pos.x, point.pos.y], i).unwrap();
+    }
+
+    tree
+}
+
+fn tree3d_from_points(points: &[Point]) -> KdTree<f32, usize, [f32; 3]> {
+    let mut tree = KdTree::new(3);
+
+    for (i, point) in points.iter().enumerate() {
+        tree.add([point.pos.x, point.pos.y, point.pos.z], i)
             .unwrap();
     }
 
@@ -132,28 +157,56 @@ fn tree_from_points(points: &[Point]) -> KdTree<f32, usize, [f32; 2]> {
 
 #[wasm_bindgen]
 impl Simulation {
-    pub fn create(points_flat: &js_sys::Float32Array, behaviours: &JsValue) -> Simulation {
+    pub fn create(
+        points_flat: &js_sys::Float32Array,
+        dims: usize,
+        behaviours: &JsValue,
+    ) -> Simulation {
         let behaviours: Vec<BehaviourNode> = behaviours.into_serde().unwrap();
+
+        // log!("[behaviours] {:?}", behaviours);
 
         let mut points_tmp = Vec::new();
         let mut final_points: Vec<Point> = [].to_vec();
 
         points_flat.for_each(&mut |n, _, _| points_tmp.push(n));
 
-        for i in 0..points_tmp.len() / 2 {
+        for i in 0..points_tmp.len() / dims {
+            let x = points_tmp[i * dims];
+            let y = points_tmp[i * dims + 1];
+            let z = if dims == 2 {
+                0.0
+            } else {
+                points_tmp[i * dims + 2]
+            };
+
             final_points.push(Point {
-                pos: Vector2d(points_tmp[i * 2], points_tmp[i * 2 + 1]),
-                vel: Vector2d(0.0, 0.0),
+                pos: Vector { x, y, z },
+                vel: Vector::default(),
                 meta: MetaMap::new(),
             })
         }
 
-        let kdtree = tree_from_points(&final_points);
+        // log!("[final_points] {:?}", final_points);
+
+        let tree2d = if dims == 2 {
+            Some(tree2d_from_points(&final_points))
+        } else {
+            None
+        };
+
+        let tree3d = if dims == 3 {
+            Some(tree3d_from_points(&final_points))
+        } else {
+            None
+        };
 
         Simulation {
             points: final_points,
             behaviours,
-            tree: kdtree,
+            tree2d,
+            tree3d,
+            dims,
         }
     }
 
@@ -167,13 +220,17 @@ impl Simulation {
         self.behaviours = behaviours.into_serde().unwrap();
     }
 
-    fn vel_for_pos_or_others(&self, params: &Params, point: &Point) -> Vector2d {
-        let mut vel_mod = Vector2d(0.0, 0.0);
+    fn vel_for_pos_or_others(&self, params: &Params, point: &Point) -> Vector {
+        let mut vel_mod = Vector::default();
 
         match params.p {
             Some(p) => {
                 let should_impact = if params.r.unwrap_or(0.0) != 0.0 {
-                    let d = squared_euclidean(&[p.0, p.1], &[point.pos.0, point.pos.1]);
+                    let d = squared_euclidean(
+                        &[p.x, p.y, p.z],
+                        &[point.pos.x, point.pos.y, point.pos.z],
+                    );
+
                     d < params.r.unwrap_or(0.0)
                 } else {
                     true
@@ -185,14 +242,27 @@ impl Simulation {
             }
 
             None => {
-                let nearby_points = self
-                    .tree
-                    .within(
-                        &[point.pos.0, point.pos.1],
-                        params.r.unwrap_or(0.0),
-                        &squared_euclidean,
-                    )
-                    .unwrap();
+                let nearby_points = if self.dims == 2 {
+                    self.tree2d
+                        .as_ref()
+                        .unwrap()
+                        .within(
+                            &[point.pos.x, point.pos.y],
+                            params.r.unwrap_or(0.0),
+                            &squared_euclidean,
+                        )
+                        .unwrap()
+                } else {
+                    self.tree3d
+                        .as_ref()
+                        .unwrap()
+                        .within(
+                            &[point.pos.x, point.pos.y, point.pos.z],
+                            params.r.unwrap_or(0.0),
+                            &squared_euclidean,
+                        )
+                        .unwrap()
+                };
 
                 for (_, nearby_idx) in nearby_points {
                     vel_mod = vel_mod.sub(
@@ -209,12 +279,8 @@ impl Simulation {
         vel_mod
     }
 
-    fn process_behaviours(
-        &self,
-        point: &Point,
-        behaviours: &[BehaviourNode],
-    ) -> (Vector2d, MetaMap) {
-        let mut vel = Vector2d(point.vel.0, point.vel.1);
+    fn process_behaviours(&self, point: &Point, behaviours: &[BehaviourNode]) -> (Vector, MetaMap) {
+        let mut vel = point.vel.clone();
         let mut meta = point.meta.clone();
 
         let empty_value = "".to_string();
@@ -255,14 +321,27 @@ impl Simulation {
                 let test_default = &Test::default();
                 let test = b.params.test.as_ref().unwrap_or(test_default);
 
-                let nearby_points = self
-                    .tree
-                    .within(
-                        &[point.pos.0 as f32, point.pos.1 as f32],
-                        b.params.r.unwrap_or(0.0),
-                        &squared_euclidean,
-                    )
-                    .unwrap();
+                let nearby_points = if self.dims == 2 {
+                    self.tree2d
+                        .as_ref()
+                        .unwrap()
+                        .within(
+                            &[point.pos.x, point.pos.y],
+                            b.params.r.unwrap_or(0.0),
+                            &squared_euclidean,
+                        )
+                        .unwrap()
+                } else {
+                    self.tree3d
+                        .as_ref()
+                        .unwrap()
+                        .within(
+                            &[point.pos.x, point.pos.y, point.pos.z],
+                            b.params.r.unwrap_or(0.0),
+                            &squared_euclidean,
+                        )
+                        .unwrap()
+                };
 
                 let mut did_collide_passing_test = test.value == "NOP".to_string();
 
@@ -299,7 +378,7 @@ impl Simulation {
             }
 
             if b.behaviour == "stop" {
-                vel = Vector2d(0.0, 0.0);
+                vel = Vector::default();
             }
         }
 
@@ -315,13 +394,21 @@ impl Simulation {
             self.points[i].meta.extend(new_meta);
         }
 
-        self.tree = tree_from_points(&self.points);
+        if self.dims == 2 {
+            self.tree2d = Some(tree2d_from_points(&self.points));
+        } else {
+            self.tree3d = Some(tree3d_from_points(&self.points));
+        }
     }
 
     pub fn get(&self) -> js_sys::Float32Array {
         let points_flat = self.points.iter().fold(Vec::new(), |mut values, p| {
-            values.push(p.pos.0);
-            values.push(p.pos.1);
+            values.push(p.pos.x);
+            values.push(p.pos.y);
+            if self.dims == 3 {
+                values.push(p.pos.z);
+            }
+
             values
         });
 
@@ -350,8 +437,11 @@ impl Simulation {
             if (test.op == "!=" && test.value != *point_value)
                 || (test.op == "==" && test.value == *point_value)
             {
-                values.push(p.pos.0);
-                values.push(p.pos.1);
+                values.push(p.pos.x);
+                values.push(p.pos.y);
+                if self.dims == 3 {
+                    values.push(p.pos.z);
+                }
             }
 
             values

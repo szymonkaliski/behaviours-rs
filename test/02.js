@@ -25,7 +25,7 @@ export default () => {
     ["dampen", { f: 0.1 }]
   ];
 
-  const simulation = createSimulation(points, behaviours);
+  const simulation = createSimulation(points, 2, behaviours);
 
   const canvas = document.createElement("canvas");
   canvas.width = width;

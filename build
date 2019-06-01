@@ -21,8 +21,15 @@ function processBehaviours(behaviours) {
   );
 }
 
-export function createSimulation(points, behaviours) {
-  const simulation = Simulation.create(points, processBehaviours(behaviours));
+export function createSimulation(points, dims, behaviours) {
+  if (!behaviours) {
+    behaviours = dims;
+    dims = 2;
+  }
+
+  behaviours = processBehaviours(behaviours);
+
+  const simulation = Simulation.create(points, dims, behaviours);
 
   simulation.replaceBehaviours = function(behaviours) {
     simulation._replaceBehaviours(processBehaviours(behaviours));

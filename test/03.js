@@ -43,7 +43,7 @@ export default () => {
     ]
   ];
 
-  const simulation = createSimulation(points, behaviours);
+  const simulation = createSimulation(points, 2, behaviours);
 
   simulation.setMeta(0, "static", "true");
 

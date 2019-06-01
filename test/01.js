@@ -4,6 +4,7 @@ export default () => {
   const [width, height] = [600, 600];
 
   const numPoints = 10000;
+  // const numPoints = 10;
 
   const points = new Float32Array(numPoints * 2);
 
@@ -20,7 +21,7 @@ export default () => {
     ["dampen", { f: 0.1 }]
   ];
 
-  const simulation = createSimulation(points, behaviours);
+  const simulation = createSimulation(points, 2, behaviours);
 
   const canvas = document.createElement("canvas");
   canvas.width = width;
