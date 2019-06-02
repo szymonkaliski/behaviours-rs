@@ -1,8 +1,8 @@
 target/
 pkg/
 
-test/node_modules/
-test/dist/
-test/.cache/
+examples/node_modules/
+examples/dist/
+examples/.cache/
 
 Notes.md

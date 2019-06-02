@@ -16,6 +16,8 @@
     "webpack-dev-server": "^3.3.1"
   },
   "dependencies": {
-    "behaviours-rs": "file:../pkg"
+    "behaviours-rs": "file:../pkg",
+    "three": "^0.105.1",
+    "three-orbitcontrols": "^2.102.1"
   }
 }
