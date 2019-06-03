@@ -215,6 +215,11 @@ impl Simulation {
         self.points[idx].meta.insert(key, value);
     }
 
+    #[wasm_bindgen(js_name = getMeta)]
+    pub fn get_meta(self, idx: usize, key: String) -> String {
+        self.points[idx].meta.get(&key).unwrap_or(&"".to_string()).to_string()
+    }
+
     #[wasm_bindgen(js_name = _replaceBehaviours)]
     pub fn replace_behaviors(&mut self, behaviours: &JsValue) {
         self.behaviours = behaviours.into_serde().unwrap();
