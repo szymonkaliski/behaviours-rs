@@ -104,8 +104,8 @@ npm start
   - `f` - force, ideally between `0.0` and `1.0`
 - `["if", { test }, children]` - executes `children` when `test` passes
   - `test`: [`op`, `key`, `value`], where `op` is either `"==`" or `"!="`, and `key`/`value` are this point's metadata
-- `["collide", { test, r }]`
-  - `test` - same as in `"if"`
+- `["collide", { test, r }, children]` - executes `children` when points collide in given `r`, optionally passing a `test`
+  - `test` - same as in `"if"`, optional
   - `r` - radius of collision
 - `["set", { ke, value }]"` - sets `key`/`value` metadata on current point
 
