@@ -5,7 +5,7 @@ const fs = require("fs");
 
 execSync("wasm-pack build");
 
-const MAIN = `import { Simulation } from "./behaviours_rs.js";
+const index = `import { Simulation } from "./behaviours_rs.js";
 
 function processBehaviours(behaviours) {
   return behaviours.reduce(
@@ -39,11 +39,12 @@ export function createSimulation(points, dims, behaviours) {
 }
 `;
 
-fs.writeFileSync("./pkg/main.js", MAIN, { encoding: "utf-8" });
+fs.writeFileSync("./pkg/index.js", index, { encoding: "utf-8" });
 
 const packageJson = require("./pkg/package.json");
 
-packageJson.module = "main.js";
+packageJson.module = "index.js";
+packageJson.files.push("index.js");
 
 fs.writeFileSync("./pkg/package.json", JSON.stringify(packageJson, null, 2), {
   encoding: "utf-8"

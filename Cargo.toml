@@ -1,6 +1,6 @@
 [package]
 name = "behaviours-rs"
-version = "0.1.0"
+version = "0.1.1"
 authors = ["Szymon Kaliski <hi@szymonkaliski.com>"]
 edition = "2018"
 
