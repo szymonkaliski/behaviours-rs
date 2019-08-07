@@ -217,7 +217,11 @@ impl Simulation {
 
     #[wasm_bindgen(js_name = getMeta)]
     pub fn get_meta(self, idx: usize, key: String) -> String {
-        self.points[idx].meta.get(&key).unwrap_or(&"".to_string()).to_string()
+        self.points[idx]
+            .meta
+            .get(&key)
+            .unwrap_or(&"".to_string())
+            .to_string()
     }
 
     #[wasm_bindgen(js_name = _replaceBehaviours)]
